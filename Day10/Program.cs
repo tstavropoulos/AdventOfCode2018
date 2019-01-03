@@ -29,9 +29,11 @@ namespace Day10
             Console.SetBufferSize(301, 301);
 
             bool ready = false;
+            long time = 10000;
 
             while (!ready)
             {
+                time++;
                 foreach (Character c in characters)
                 {
                     c.Progress();
@@ -46,14 +48,24 @@ namespace Day10
             while (true)
             {
                 Console.Clear();
+                time++;
 
                 foreach (Character c in characters)
                 {
                     c.Progress();
-                    
-                    if (c.x >= -150 && c.x + 150 < Console.BufferWidth && c.y <= -150 && 150 - c.y < 300)
+
+                    int xCenter = 300;
+                    int yCenter = 0;
+
+                    int xRad = (Console.BufferWidth - 1) / 2;
+                    int yRad = (Console.BufferHeight - 1) / 2;
+
+                    int x = c.x - xCenter;
+                    int y = c.y - yCenter;
+
+                    if (x >= -xRad && x <= xRad && y >= -yRad && y <= yRad)
                     {
-                        Console.SetCursorPosition(c.x + 150, 150 - c.y);
+                        Console.SetCursorPosition(x + xRad, y + yRad);
                         Console.Write('#');
                     }
                 }
@@ -66,8 +78,8 @@ namespace Day10
 
             }
 
-
-
+            Console.Clear();
+            Console.WriteLine($"Time: {time}");
             Console.ReadKey();
         }
 
