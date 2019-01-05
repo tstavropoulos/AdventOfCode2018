@@ -6,6 +6,23 @@ using System.Threading.Tasks;
 
 namespace Day13
 {
+    public enum Direction
+    {
+        Up,
+        Right,
+        Down,
+        Left,
+        MAX
+    }
+
+    public enum Turn
+    {
+        Left,
+        Straight,
+        Right,
+        MAX
+    }
+
     class Program
     {
         private const string inputFile = "..\\..\\..\\input13.txt";
@@ -28,6 +45,8 @@ namespace Day13
             char[,] grid = new char[file[0].Length, file.Length];
 
             List<Cart> carts = new List<Cart>();
+
+            HashSet<(int x, int y)> collisionHash = new HashSet<(int x, int y)>();
 
             for (int y = 0; y < file.Length; y++)
             {
@@ -70,12 +89,12 @@ namespace Day13
                             break;
                         case '^':
                         case 'v':
-                            carts.Add(new Cart(x, y, line[x]));
+                            carts.Add(new Cart(x, y, grid, line[x]));
                             grid[x, y] = Vert;
                             break;
                         case '<':
                         case '>':
-                            carts.Add(new Cart(x, y, line[x]));
+                            carts.Add(new Cart(x, y, grid, line[x]));
                             grid[x, y] = Horiz;
                             break;
                         default:
@@ -94,34 +113,100 @@ namespace Day13
                 Console.Write('\n');
             }
 
+            long firstCollisionTick = -1;
+            long tick = -1;
+            (int x, int y) firstCollisionLocation = (0, 0);
+            HashSet<Cart> destroyedCarts = new HashSet<Cart>();
 
+            while (true)
+            {
+                tick++;
+                carts.Sort();
+
+                foreach (Cart cart in carts)
+                {
+                    if (destroyedCarts.Contains(cart))
+                    {
+                        continue;
+                    }
+
+                    collisionHash.Remove((cart.x, cart.y));
+
+                    cart.Progress();
+
+                    bool collision = !collisionHash.Add((cart.x, cart.y));
+
+                    if (collision)
+                    {
+                        if (firstCollisionTick == -1)
+                        {
+                            //First collision
+                            firstCollisionTick = tick;
+                            //Collision!
+                            firstCollisionLocation = (cart.x, cart.y);
+                        }
+
+                        //Remove collision hash - can't collide anymore
+                        collisionHash.Remove((cart.x, cart.y));
+
+                        //Find the two colliding carts
+                        for (int i = 0; i < carts.Count; i++)
+                        {
+                            if (carts[i].x == cart.x && carts[i].y == cart.y)
+                            {
+                                destroyedCarts.Add(carts[i]);
+                            }
+                        }
+                    }
+                }
+
+                foreach (Cart deadCart in destroyedCarts)
+                {
+                    carts.Remove(deadCart);
+                }
+                destroyedCarts.Clear();
+
+                if (carts.Count == 1)
+                {
+                    break;
+                }
+            }
+
+
+            Console.WriteLine($"Collision detected at ({firstCollisionLocation.x},{firstCollisionLocation.y}) on tick {firstCollisionTick}");
+            Console.WriteLine("");
+            Console.WriteLine("Star 2");
+            Console.WriteLine("");
+            Console.WriteLine($"Final cart detected at ({carts[0].x},{carts[0].y}) on tick {tick}");
 
             Console.ReadKey();
         }
 
-        public enum Direction
-        {
-            Up,
-            Down,
-            Left,
-            Right,
-            MAX
-        }
-
-
-        public class Cart
+        public class Cart : IComparable<Cart>
         {
             public Direction direction;
             public int x;
             public int y;
 
-            //Cycles Left(0), Straight(1), Right(2)
-            public int cycle = 0;
+            private Turn _nextTurn = Turn.Left;
+            private Turn NextTurn
+            {
+                get
+                {
+                    Turn currentTurn = _nextTurn;
+                    _nextTurn = _nextTurn.NextTurn();
+                    return currentTurn;
+                }
+            }
 
-            public Cart(int x, int y, char cart)
+            private readonly char[,] grid;
+
+            public Cart(int x, int y, char[,] grid, char cart)
             {
                 this.x = x;
                 this.y = y;
+
+                this.grid = grid;
 
                 switch (cart)
                 {
@@ -146,9 +231,139 @@ namespace Day13
                 }
             }
 
-            public void Progress(char[,] grid)
+            public void Progress()
             {
+                switch (direction)
+                {
+                    case Direction.Up:
+                        y--;
+                        break;
+                    case Direction.Down:
+                        y++;
+                        break;
+                    case Direction.Left:
+                        x--;
+                        break;
+                    case Direction.Right:
+                        x++;
+                        break;
 
+                    default:
+                        throw new Exception($"Unimplemented direction {direction}");
+                }
+
+                direction = GetNewDirection();
+            }
+
+            private Direction GetNewDirection()
+            {
+                switch (grid[x, y])
+                {
+                    //Nothing special to do with new location
+                    case Horiz:
+                        switch (direction)
+                        {
+                            case Direction.Left:
+                            case Direction.Right: return direction;
+                            default: throw new Exception($"Unexpected Direction: {direction}");
+                        }
+                    case Vert:
+                        switch (direction)
+                        {
+                            case Direction.Down:
+                            case Direction.Up: return direction;
+                            default: throw new Exception($"Unexpected Direction: {direction}");
+                        }
+                    case LL:
+                        switch (direction)
+                        {
+                            case Direction.Left: return Direction.Up;
+                            case Direction.Down: return Direction.Right;
+                            default: throw new Exception($"Unexpected Direction: {direction}");
+                        }
+                    case LR:
+                        switch (direction)
+                        {
+                            case Direction.Right: return Direction.Up;
+                            case Direction.Down: return Direction.Left;
+                            default: throw new Exception($"Unexpected Direction: {direction}");
+                        }
+                    case UL:
+                        switch (direction)
+                        {
+                            case Direction.Up: return Direction.Right;
+                            case Direction.Left: return Direction.Down;
+                            default: throw new Exception($"Unexpected Direction: {direction}");
+                        }
+                    case UR:
+                        switch (direction)
+                        {
+                            case Direction.Up: return Direction.Left;
+                            case Direction.Right: return Direction.Down;
+                            default: throw new Exception($"Unexpected Direction: {direction}");
+                        }
+                    case Int: return direction.Rotate(NextTurn);
+                    default: throw new Exception($"Unexpected character: {grid[x, y]}");
+                }
+
+            }
+
+            int IComparable<Cart>.CompareTo(Cart other)
+            {
+                if (y == other.y)
+                {
+                    return x.CompareTo(other.x);
+                }
+
+                return y.CompareTo(other.y);
+            }
+        }
+    }
+
+    public static class EnumExts
+    {
+        public static Turn NextTurn(this Turn turn)
+        {
+            switch (turn)
+            {
+                case Turn.Left: return Turn.Straight;
+                case Turn.Straight: return Turn.Right;
+                case Turn.Right: return Turn.Left;
+                default: throw new Exception($"Unexpected Turn: {turn}");
+            }
+        }
+
+        public static Direction Rotate(this Direction direction, Turn turn)
+        {
+            switch (turn)
+            {
+                case Turn.Left: return direction.RotateCCW();
+                case Turn.Straight: return direction;
+                case Turn.Right: return direction.RotateCW();
+                default: throw new Exception($"Unexpected Turn: {turn}");
+            }
+        }
+
+        public static Direction RotateCW(this Direction direction)
+        {
+            switch (direction)
+            {
+                case Direction.Up: return Direction.Right;
+                case Direction.Right: return Direction.Down;
+                case Direction.Down: return Direction.Left;
+                case Direction.Left: return Direction.Up;
+                default: throw new Exception($"Unexpected Direction: {direction}");
+            }
+        }
+        public static Direction RotateCCW(this Direction direction)
+        {
+            switch (direction)
+            {
+                case Direction.Up: return Direction.Left;
+                case Direction.Right: return Direction.Up;
+                case Direction.Down: return Direction.Right;
+                case Direction.Left: return Direction.Down;
+                default: throw new Exception($"Unexpected Direction: {direction}");
             }
         }
     }
