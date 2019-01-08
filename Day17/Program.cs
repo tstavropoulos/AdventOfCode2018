@@ -115,6 +115,20 @@ namespace Day17
             //If you hit Clay when going both directions, convert to still water and jump to prior flow as new source to propagate.
 
 
+            //Console.ReadKey();
+
+            //Console.WriteLine("");
+            //for (int y = 0; y < h; y++)
+            //{
+            //    for (int x = 0; x < w; x++)
+            //    {
+            //        Console.Write(field[x, y]);
+            //    }
+            //    Console.Write('\n');
+            //}
+
+
+
             sourceQueue = new Queue<Flow>();
             sourceQueue.Enqueue(new DownFlow(500 - minX, 1));
             field[500 - minX, 1] = WaterFlow;
@@ -126,6 +140,7 @@ namespace Day17
             }
 
 
+            //Console.ReadKey();
             //Console.WriteLine("");
             //for (int y = 0; y < h; y++)
             //{
@@ -135,6 +150,7 @@ namespace Day17
             //    }
             //    Console.Write('\n');
             //}
+
 
             int flowCount = 0;
             int steadyCount = 0;

@@ -97,6 +97,7 @@ namespace Day16
                 instruction: (9, 2, 1, 2),
                 postTest: (3, 2, 2, 1)));
 
+            //My test all go (T, T, T, F) in each category
             //ADDR Tests
             examples[1].Add(new TestCase(
                 preTest: (1, 2, 3, 4),
