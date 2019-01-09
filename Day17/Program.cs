@@ -140,16 +140,33 @@ namespace Day17
             }
 
 
-            //Console.ReadKey();
-            //Console.WriteLine("");
-            //for (int y = 0; y < h; y++)
-            //{
-            //    for (int x = 0; x < w; x++)
-            //    {
-            //        Console.Write(field[x, y]);
-            //    }
-            //    Console.Write('\n');
-            //}
+            Console.WriteLine("Press a key to begin rendering.");
+            Console.ReadKey();
+            Console.WriteLine("");
+            for (int y = 0; y < h; y++)
+            {
+                for (int x = 0; x < w; x++)
+                {
+                    switch (field[x,y])
+                    {
+                        case Steady:
+                        case Source:
+                        case WaterFlow:
+                            Console.BackgroundColor = ConsoleColor.Blue;
+                            break;
+                        case Clay:
+                            Console.BackgroundColor = ConsoleColor.Gray;
+                            break;
+                        case Empty:
+                            Console.BackgroundColor = ConsoleColor.Black;
+                            break;
+                        default: throw new Exception();
+                    }
+
+                    Console.Write(field[x, y]);
+                }
+                Console.Write('\n');
+            }
 
 
             int flowCount = 0;
