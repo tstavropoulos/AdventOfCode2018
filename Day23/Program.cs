@@ -23,18 +23,19 @@ namespace Day23
 
             foreach (string line in System.IO.File.ReadAllLines(inputFile))
             {
-                nanobots.Add(new Nanobot(line));
+                Nanobot newNanoBot = new Nanobot(line);
+                nanobots.Add(newNanoBot);
 
-                if (biggestRadius == null || nanobots[nanobots.Count - 1].r > biggestRadius.r)
+                if (biggestRadius == null || newNanoBot.r > biggestRadius.r)
                 {
-                    biggestRadius = nanobots[nanobots.Count - 1];
+                    biggestRadius = newNanoBot;
                 }
             }
 
             int interiorCount = 0;
             foreach (Nanobot bot in nanobots)
             {
-                if (bot.Distance(biggestRadius) <= biggestRadius.r)
+                if (biggestRadius.IsWithinRange(bot))
                 {
                     interiorCount++;
                 }
@@ -52,112 +53,86 @@ namespace Day23
 
             //Let's try a binary search
             //Set up bounds in the laziest way
-            long minX = nanobots.Min(x => x.x);
-            long maxX = nanobots.Max(x => x.x) + 1;
-            long minY = nanobots.Min(x => x.y);
-            long maxY = nanobots.Max(x => x.y) + 1;
-            long minZ = nanobots.Min(x => x.z);
-            long maxZ = nanobots.Max(x => x.z) + 1;
+            Vector min = new Vector(
+                x: nanobots.Min(x => x.position.x),
+                y: nanobots.Min(x => x.position.y),
+                z: nanobots.Min(x => x.position.z));
 
-            List<(long x0, long x1, long y0, long y1, long z0, long z1)> boxes = new List<(long x0, long x1, long y0, long y1, long z0, long z1)>();
+            Vector max = new Vector(
+                x: nanobots.Max(x => x.position.x) + 1,
+                y: nanobots.Max(x => x.position.y) + 1,
+                z: nanobots.Max(x => x.position.z) + 1);
+
+            List<Box> bestBoxes = new List<Box>();
+            List<Box> testBoxes = new List<Box>
+            {
+                new Box(min, max)
+            };
 
             while (true)
             {
-                boxes.Clear();
+                //Console.WriteLine("###################################");
+                //Console.WriteLine("");
+                //Console.WriteLine("Staring Iteration");
+                //Console.WriteLine("");
 
-                long pivotX = (minX + maxX + 1) / 2;
-                long pivotY = (minY + maxY + 1) / 2;
-                long pivotZ = (minZ + maxZ + 1) / 2;
+                int bestBoxCount = -1;
+                bestBoxes.Clear();
 
-                boxes.Add((minX, pivotX, minY, pivotY, minZ, pivotZ));
-
-                if (pivotX != maxX)
+                foreach (Box testBox in testBoxes)
                 {
-                    boxes.Add((pivotX, maxX, minY, pivotY, minZ, pivotZ));
-
-                    if (pivotY != maxY)
+                    foreach (Box box in testBox.SliceBox())
                     {
-                        boxes.Add((pivotX, maxX, pivotY, maxY, minZ, pivotZ));
-
-                        if (pivotZ != maxZ)
+                        int count = CountBots(box);
+                        //Console.WriteLine($"Box {box}, Count {count}");
+                        if (count > bestBoxCount)
                         {
-                            boxes.Add((pivotX, maxX, pivotY, maxY, pivotZ, maxZ));
+                            bestBoxes.Clear();
+                            bestBoxes.Add(box);
+                            bestBoxCount = count;
                         }
-                    }
-
-                    if (pivotZ != maxZ)
-                    {
-                        boxes.Add((pivotX, maxX, minY, pivotY, pivotZ, maxZ));
-                    }
-                }
-
-                if (pivotY != maxY)
-                {
-                    boxes.Add((minX, pivotX, pivotY, maxY, minZ, pivotZ));
-
-                    if (pivotZ != maxZ)
-                    {
-                        boxes.Add((minX, pivotX, pivotY, maxY, pivotZ, maxZ));
-                    }
-                }
-
-                if (pivotZ != maxZ)
-                {
-                    boxes.Add((minX, pivotX, minY, pivotY, pivotZ, maxZ));
-                }
-
-
-
-                int bestBox = 0;
-                int bestBotCount = CountBots(boxes[0]);
-
-                for (int i = 1; i < boxes.Count; i++)
-                {
-                    int count = CountBots(boxes[i]);
-                    if (count > bestBotCount)
-                    {
-                        bestBox = i;
-                        bestBotCount = count;
-                    }
-                    else if (count == bestBotCount)
-                    {
-                        //Break ties with box closest to origin
-                        if (DistanceFromOrigin(boxes[i]) < DistanceFromOrigin(boxes[bestBox]))
+                        else if (count == bestBoxCount)
                         {
-                            bestBox = i;
+                            bestBoxes.Add(box);
                         }
                     }
                 }
 
-                minX = boxes[bestBox].x0;
-                maxX = boxes[bestBox].x1;
-                minY = boxes[bestBox].y0;
-                maxY = boxes[bestBox].y1;
-                minZ = boxes[bestBox].z0;
-                maxZ = boxes[bestBox].z1;
+                //Console.WriteLine("");
+                //Console.WriteLine($"Best Box Bot Count: {bestBoxCount}");
+                //foreach (Box bestBox in bestBoxes)
+                //{
+                //    Console.WriteLine($"    {bestBox}");
+                //}
+                //Console.WriteLine("");
 
-                if ((minX + 1 == maxX) && (minY + 1 == maxY) && (minZ + 1 == maxZ))
+                testBoxes.Clear();
+                testBoxes.AddRange(bestBoxes);
+
+                Box testingBox = testBoxes[0];
+                if ((testingBox.min.x + 1 == testingBox.max.x) && (testingBox.min.y + 1 == testingBox.max.y) && (testingBox.min.z + 1 == testingBox.max.z))
                 {
                     break;
                 }
             }
 
+            Console.WriteLine($"Found {testBoxes.Count} final boxes");
 
-            Console.WriteLine($"Best Position: {minX},{minY},{minZ}");
-            Console.WriteLine($"Manhattan distance from origin: {Math.Abs(minX) + Math.Abs(minY) + Math.Abs(minZ)}");
+            min = testBoxes.Select(x => x.min).OrderBy(x => x.DistanceFromOrigin).First();
 
-
+            Console.WriteLine($"Best Position: {min}, Bots: {CountBots(min)}, Distance from Origin: {min.DistanceFromOrigin}");
+            
             Console.WriteLine("");
             Console.ReadKey();
         }
 
-        public static int CountBots((long x0, long x1, long y0, long y1, long z0, long z1) box)
+        public static int CountBots(in Vector position)
         {
             int count = 0;
 
             foreach (Nanobot bot in nanobots)
             {
-                if (bot.IsWithinRange(box.x0, box.x1, box.y0, box.y1, box.z0, box.z1))
+                if (bot.IsWithinRange(position))
                 {
                     count++;
                 }
@@ -166,34 +141,188 @@ namespace Day23
             return count;
         }
 
-        private static long DistanceFromOrigin((long x0, long x1, long y0, long y1, long z0, long z1) box)
+        public static int CountBots(Box box)
         {
-            if ((0 >= box.x0 && 0 < box.x1) && (0 >= box.y0 && 0 < box.y1) && (0 >= box.z0 && 0 < box.z1))
+            int count = 0;
+
+            foreach (Nanobot bot in nanobots)
             {
-                return 0;
+                if (bot.IsWithinRange(box))
+                {
+                    count++;
+                }
             }
 
-            return Math.Abs(Math.Max(box.x0, Math.Min(box.x1, 0))) + Math.Abs(Math.Max(box.y0, Math.Min(box.y1, 0))) + Math.Abs(Math.Max(box.z0, Math.Min(box.z1, 0)));
+            return count;
         }
 
-        public class Nanobot
+
+        public readonly struct Box
         {
-            public readonly long r;
+            public readonly Vector min;
+            public readonly Vector max;
+
+            public Box(in Vector min, in Vector max)
+            {
+                this.min = min;
+                this.max = max;
+            }
+
+            public bool Contains(in Vector point) =>
+                (point.x >= min.x && point.x < max.x) &&
+                (point.y >= min.y && point.y < max.y) &&
+                (point.z >= min.z && point.z < max.z);
+
+            public long DistanceFromPoint(in Vector point)
+            {
+                if (Contains(point))
+                {
+                    return 0;
+                }
+
+                return Clamp(point, min, max - Vector.Ones).Distance(point);
+            }
+
+            public long DistanceFromOrigin => DistanceFromPoint(Vector.Origin);
+
+            public override string ToString() => $"[{min} {max}]";
+
+            public IEnumerable<Box> SliceBox()
+            {
+                Vector deltas = max - min;
+
+                Vector sliceMin = Vector.Ones;
+                Vector sliceMax = Vector.Ones * 4;
+
+                Vector slices = Clamp(deltas, sliceMin, sliceMax);
+
+                Vector stepSize = (deltas + slices - Vector.Ones) / slices;
+
+
+                for (long xSlice = 0; xSlice < slices.x; xSlice++)
+                {
+                    for (long ySlice = 0; ySlice < slices.y; ySlice++)
+                    {
+                        for (long zSlice = 0; zSlice < slices.z; zSlice++)
+                        {
+                            Vector slice = new Vector(xSlice, ySlice, zSlice);
+
+                            yield return new Box(
+                                min: min + slice * stepSize,
+                                max: min + (slice + Vector.Ones) * stepSize);
+                        }
+                    }
+                }
+            }
+        }
+
+        public readonly struct Vector
+        {
+            public static readonly Vector Origin = new Vector(0, 0, 0);
+            public static readonly Vector Ones = new Vector(1, 1, 1);
 
             public readonly long x;
             public readonly long y;
             public readonly long z;
 
-            public (long x, long y, long z) Position => (x, y, z);
+            public long DistanceFromOrigin => Math.Abs(x) + Math.Abs(y) + Math.Abs(z);
+
+            public Vector(long x, long y, long z)
+            {
+                this.x = x;
+                this.y = y;
+                this.z = z;
+            }
+
+            public long Distance(in Vector v) => Math.Abs(x - v.x) + Math.Abs(y - v.y) + Math.Abs(z - v.z);
+
+            public static Vector operator +(in Vector lhs, in Vector rhs)
+            {
+                return new Vector(lhs.x + rhs.x, lhs.y + rhs.y, lhs.z + rhs.z);
+            }
+
+            public static Vector operator -(in Vector lhs, in Vector rhs)
+            {
+                return new Vector(lhs.x - rhs.x, lhs.y - rhs.y, lhs.z - rhs.z);
+            }
+
+            /// <summary>
+            /// Element-wise division
+            /// </summary>
+            public static Vector operator /(in Vector lhs, in Vector rhs)
+            {
+                return new Vector(lhs.x / rhs.x, lhs.y / rhs.y, lhs.z / rhs.z);
+            }
+
+            /// <summary>
+            /// Element-wise multiplication
+            /// </summary>
+            public static Vector operator *(in Vector lhs, in Vector rhs)
+            {
+                return new Vector(lhs.x * rhs.x, lhs.y * rhs.y, lhs.z * rhs.z);
+            }
+
+            public static bool operator ==(in Vector lhs, in Vector rhs)
+            {
+                return lhs.x == rhs.x && lhs.y == rhs.y && lhs.z == rhs.z;
+            }
+
+            public static bool operator !=(in Vector lhs, in Vector rhs)
+            {
+                return lhs.x != rhs.x || lhs.y != rhs.y || lhs.z != rhs.z;
+            }
+
+            public static Vector operator /(in Vector lhs, long rhs)
+            {
+                return new Vector(lhs.x / rhs, lhs.y / rhs, lhs.z / rhs);
+            }
+
+            public static Vector operator *(in Vector lhs, long rhs)
+            {
+                return new Vector(lhs.x * rhs, lhs.y * rhs, lhs.z * rhs);
+            }
+
+            public override string ToString() => $"({x,10},{y,10},{z,10})";
+
+            public override bool Equals(object obj)
+            {
+                if (!(obj is Vector))
+                {
+                    return false;
+                }
+
+                Vector vector = (Vector)obj;
+                return x == vector.x &&
+                       y == vector.y &&
+                       z == vector.z;
+            }
+
+            public override int GetHashCode()
+            {
+                int hashCode = 373119288;
+                hashCode = hashCode * -1521134295 + x.GetHashCode();
+                hashCode = hashCode * -1521134295 + y.GetHashCode();
+                hashCode = hashCode * -1521134295 + z.GetHashCode();
+                return hashCode;
+            }
+        }
+
+
+        public class Nanobot
+        {
+            public readonly long r;
+
+            public readonly Vector position;
 
             public Nanobot(string line)
             {
                 int endOfPos = line.IndexOf('>');
                 long[] values = line.Substring(5, endOfPos - 5).Split(',').Select(long.Parse).ToArray();
 
-                x = values[0];
-                y = values[1];
-                z = values[2];
+                position = new Vector(
+                    x: values[0],
+                    y: values[1],
+                    z: values[2]);
 
 
                 int startOfRadius = line.IndexOf('r') + 2;
@@ -201,27 +330,29 @@ namespace Day23
                 r = long.Parse(line.Substring(startOfRadius));
             }
 
-            public long Distance(Nanobot source)
-            {
-                return Math.Abs(x - source.x) + Math.Abs(y - source.y) + Math.Abs(z - source.z);
-            }
-
-            public long Distance((long x, long y, long z) source)
-            {
-                return Math.Abs(x - source.x) + Math.Abs(y - source.y) + Math.Abs(z - source.z);
-            }
-
-            public bool IsWithinRange(long x0, long x1, long y0, long y1, long z0, long z1)
-            {
-                if ((x >= x0 && x < x1) && (y >= y0 && y < y1) && (z >= z0 && z < z1))
-                {
-                    return true;
-                }
-
-                (long x, long y, long z) closest = (Math.Max(x0, Math.Min(x1, x)), Math.Max(y0, Math.Min(y1, y)), Math.Max(z0, Math.Min(z1, z)));
-
-                return Distance(closest) <= r;
-            }
+            public bool IsWithinRange(Nanobot source) => position.Distance(source.position) <= r;
+            public bool IsWithinRange(Box box) => box.DistanceFromPoint(position) <= r;
+            public bool IsWithinRange(Vector pos) => pos.Distance(position) <= r;
         }
+
+        public static long Clamp(long value, long min, long max) => Math.Max(min, Math.Min(value, max));
+
+        public static Vector Clamp(in Vector value, in Vector min, in Vector max) =>
+            new Vector(
+                x: Clamp(value.x, min.x, max.x),
+                y: Clamp(value.y, min.y, max.y),
+                z: Clamp(value.z, min.z, max.z));
+
+        public static Vector Min(in Vector a, in Vector b) =>
+            new Vector(
+                x: Math.Min(a.x, b.x),
+                y: Math.Min(a.y, b.y),
+                z: Math.Min(a.z, b.z));
+
+        public static Vector Max(in Vector a, in Vector b) =>
+            new Vector(
+                x: Math.Max(a.x, b.x),
+                y: Math.Max(a.y, b.y),
+                z: Math.Max(a.z, b.z));
     }
 }
